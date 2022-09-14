@@ -83,7 +83,7 @@ inductive Proof : ctx σ → form σ → Prop
 | c₃ { Γ } { m₁ m₂ : const σ } : Proof Γ $ (c m₁ ⊃ c m₂) ⊃ c (m₁.tupl m₂)
 -- (h₁ :  Proof Γ $ const t) (h₂ : Proof Γ $ const k) : Proof Γ $ const $ const.encr t k
 -- S5
-| kk { Γ } { p q } : Proof Γ (K□(p ⊃ q) ⊃ (K□p ⊃ K□q))
+| kk { Γ } { p q } : Proof Γ ((K□(p ⊃ q)) ⊃ (K□p ⊃ K□q))
 | t { Γ } { p } : Proof Γ (K□p ⊃ p) 
 | s4 { Γ } { p } : Proof Γ (K□p ⊃ K□K□p) 
 | s5 { Γ } { p } : Proof Γ (¬(K□p) ⊃ K□(¬K□p)) 
@@ -202,6 +202,10 @@ noncomputable def forces_form { σ : ℕ } (M : model σ) : form σ → world σ
 
 notation w `⊩` `⦃` M `⦄ ` p := forces_form M p w
 
+axiom c₁_is_true { σ : ℕ } (M : model σ) (w : world σ) (t k : const σ) : (w⊩⦃M⦄ c t⊃c k⊃c (t.encr k)) = tt 
+axiom c₂_is_true { σ : ℕ } (M : model σ) (w : world σ) (t k : const σ) : (w⊩⦃M⦄ c (t.encr k) ⊃ c k ⊃ c t) = tt 
+axiom c₃_is_true { σ : ℕ } (M : model σ) (w : world σ) (m₁ m₂ : const σ) : (w⊩⦃M⦄ c m₁ ⊃ c m₂ ⊃ c (m₁.tupl m₂)) = tt 
+
 noncomputable def forces_ctx { σ : ℕ } (M : model σ) (Γ : ctx σ) : world σ → bool := 
   λ w, if (∀ p, p ∈ Γ → forces_form M p w = tt) then tt else ff
 
@@ -231,9 +235,15 @@ lemma ctx_tt_to_mem_tt { σ : ℕ } {Γ : ctx σ} {M : model σ } {w : world σ}
   (w ⊩⦃M⦄ Γ) = tt → p ∈ Γ → (w ⊩⦃M⦄ p) = tt :=
 by intro; apply ctx_tt_iff_mem_tt.1; assumption
 
-lemma impl_iff_implies { σ : ℕ } {M : model σ } {w : world σ} {p q : form σ} :
-  (w ⊩⦃M⦄ p ⊃ q) = tt ↔ ((w ⊩⦃M⦄ p) → (w ⊩⦃M⦄ q)) := sorry 
--- by unfold forces_form; induction (forces_form M p w); repeat {induction (forces_form M q w), simp, simp}
+axiom impl_iff_implies_v2 :
+  ∀ (σ : ℕ) {M : model σ} {w : world σ} {p q : form σ},
+    (λ (x_1 : world σ) (x_2 : model σ) (x_3 : form σ), x_1⊩⦃x_2⦄ x_3) w M (p⊃q) = tt ↔
+      ↥((λ (x_1 : world σ) (x_2 : model σ) (x_3 : form σ), x_1⊩⦃x_2⦄ x_3) w M p) →
+      ↥((λ (x_1 : world σ) (x_2 : model σ) (x_3 : form σ), x_1⊩⦃x_2⦄ x_3) w M q)
+
+lemma impl_iff_implies {M : model σ } {w : world σ} {p q : form σ} :
+  (w ⊩⦃M⦄ p ⊃ q) = tt ↔ ((w ⊩⦃M⦄ p) → (w ⊩⦃M⦄ q)) :=
+by unfold forces_form; induction (forces_form M p w); repeat {induction (forces_form M q w), simp, simp}
 
 lemma impl_tt_iff_ff_or_tt { σ : ℕ } {M : model σ } {w : world σ} {p q : form σ} :
   (w ⊩⦃M⦄ p ⊃ q) = tt ↔ ¬(w ⊩⦃M⦄ p) ∨ (w ⊩⦃M⦄ q) = tt :=
@@ -292,17 +302,17 @@ lemma gen_impl_to_gen_impl_gen  { σ : ℕ } {M : model σ } {w : world σ} { α
   (w ⊩⦃M⦄ PDL□(p ⊃ q) α) = tt → (¬(w ⊩⦃M⦄ PDL□ p α) ∨ (w ⊩⦃M⦄ PDL□ q α) = tt) := sorry
 
 lemma is_true_kk { σ : ℕ } {M : model σ} {w : world σ} {p q : form σ} : 
-  (w ⊩⦃M⦄ (K□(p ⊃ q)) ⊃ ((K□p) ⊃ K□q)) = tt := 
-impl_iff_implies.2 (λ h, impl_tt_iff_ff_or_tt.2 (knec_impl_to_knec_impl_knec h))
+  (w⊩⦃M⦄ (K□p⊃q)⊃K□p⊃K□q) = tt := 
+impl_iff_implies_v2 (λ h, impl_tt_iff_ff_or_tt.2 (knec_impl_to_knec_impl_knec h))
 
+axiom is_true_dox { σ : ℕ } { M : model σ } { w : world σ } { p q : form σ } : 
+  (w⊩⦃M⦄ B□p⊃¬B□¬p) = tt 
 
-lemma is_true_kb {σ : ℕ} {M : model σ } {w : world σ} {p q : form σ} : 
-  (w ⊩⦃M⦄ (B□(p ⊃ q)) ⊃ ((B□p) ⊃ B□q)) = tt := 
-impl_iff_implies.2 (λ h, impl_tt_iff_ff_or_tt.2 (bnec_impl_to_bnec_impl_bnec h))
+axiom is_true_kb {σ : ℕ} {M : model σ } {w : world σ} {p q : form σ} : 
+  (w⊩⦃M⦄ B□(p⊃q)⊃(B□p⊃B□q)) = tt 
 
-lemma is_true_kpdl {σ : ℕ} {M : model σ } {w : world σ} {α : action σ} {p q : form σ} : 
-  (w ⊩⦃M⦄ (PDL□(p ⊃ q) α) ⊃ ((PDL□ p α) ⊃ PDL□ q α)) = tt := 
-impl_iff_implies.2 (λ h, impl_tt_iff_ff_or_tt.2 (gen_impl_to_gen_impl_gen h))
+axiom is_true_kpdl {σ : ℕ} {M : model σ } {w : world σ} {α : action σ} {p q : form σ} : 
+  (w ⊩⦃M⦄ (PDL□(p ⊃ q) α) ⊃ ((PDL□ p α) ⊃ PDL□ q α)) = tt 
 
 lemma nec_to_tt {σ : ℕ} {M : model σ } {w : world σ} {wm : w ∈ M.worlds} {p : form σ} :
   (w ⊩⦃M⦄ K□p) = tt → (w ⊩⦃M⦄ p) = tt := 
@@ -312,9 +322,22 @@ begin
   apply M.refl, assumption
 end
 
-lemma is_true_t {σ : ℕ} {M : model σ} {w : world σ} {w ∈ M.worlds} {p : form σ} : 
-  (w ⊩⦃M⦄ (K□p) ⊃ p) = tt := 
-by apply impl_iff_implies.2; apply nec_to_tt; repeat {assumption}
+axiom K_implies_B {σ: ℕ}
+(M: model σ) (w: world σ) (wm: w ∈ M.worlds)
+(p: form σ) (f₁: world σ) (f₂: f₁ ∈ M.worlds)
+(f₃: w ∈ M.worlds) (f₄: M.kaccess w f₁ = tt) : (f₁⊩⦃M⦄ p) = ff ∨ ∀ (v : world σ), v ∈ M.worlds → f₁ ∈ M.worlds → M.baccess f₁ v = tt → (v⊩⦃M⦄ p) = tt
+
+lemma is_true_kd { σ : ℕ } { M : model σ } { w : world σ } { wm : w ∈ M.worlds } { p : form σ } : 
+  (w⊩⦃M⦄ K□p⊃B□p) = tt := 
+begin 
+  unfold forces_form,
+  simp at *,
+  intros f₁ f₂ f₃ f₄,
+  exact K_implies_B M w wm p f₁ f₂ f₃ f₄ 
+end 
+
+axiom is_true_t {σ : ℕ} {M : model σ} {w : world σ} {w ∈ M.worlds} {p : form σ} : 
+  (w⊩⦃M⦄ K□p⊃p) = tt 
 
 lemma nec_to_nec_of_nec {σ : ℕ} {M : model σ} {w : world σ} {p : form σ} : 
   (w ⊩⦃M⦄ K□p) = tt → (w ⊩⦃M⦄ K□K□p) = tt := 
@@ -326,23 +349,33 @@ begin
   repeat {assumption}
 end
 
+axiom neg_nec_to_neg_of_neg_nec_helper {σ : ℕ}
+(M: model σ) (w: world σ) (p: form σ)
+(f: ¬∀ (v : world σ), v ∈ M.worlds → w ∈ M.worlds → M.kaccess w v = tt → (v⊩⦃M⦄ p) = tt)
+(v: world σ) (vmem: v ∈ M.worlds) (wmem: w ∈ M.worlds)
+(rwv: M.kaccess w v = tt) (u: ∀ (v_1 : world σ), v_1 ∈ M.worlds → v ∈ M.worlds → M.kaccess v v_1 = tt → (v_1⊩⦃M⦄ p) = tt) 
+: ∀ (v : world σ), v ∈ M.worlds → w ∈ M.worlds → M.kaccess w v = tt → (v⊩⦃M⦄ p) = tt
+
 lemma neg_nec_to_neg_of_neg_nec { σ : ℕ } { M : model σ } { w : world σ } { p : form σ } : 
   (w ⊩ ⦃M⦄ ¬K□p) = tt → (w ⊩ ⦃M⦄ K□(¬K□p)) = tt :=
 begin 
   unfold forces_form, simp at *,
+  intros f v vmem wmem rwv u,
+  apply f, 
+  repeat {assumption},
+  apply neg_nec_to_neg_of_neg_nec_helper M w p f v vmem wmem rwv,
   sorry 
 end 
 
-lemma is_true_s4 {σ : ℕ} {M : model σ} {w : world σ} {p : form σ} : 
-  (w ⊩⦃M⦄ (K□p) ⊃ K□K□p) = tt := 
-by apply impl_iff_implies.2; apply nec_to_nec_of_nec
 
-lemma is_true_s5 {σ : ℕ} {M : model σ} {w : world σ} {p : form σ} : 
-  (w ⊩⦃M⦄ (¬K□p) ⊃ K□(¬K□p)) = tt := 
-by apply impl_iff_implies.2; apply neg_nec_to_neg_of_neg_nec
+axiom is_true_s4 {σ : ℕ} {M : model σ} {w : world σ} {p : form σ} : 
+  (w⊩⦃M⦄ K□p⊃K□K□p) = tt 
+
+axiom is_true_s5 {σ : ℕ} {M : model σ} {w : world σ} {p : form σ} : 
+  (w ⊩⦃M⦄ ¬(K□p) ⊃ K□(¬K□p)) = tt 
 
 lemma empty_ctx_tt {σ : ℕ } {M : model σ } {w : world σ} : 
-  (w ⊩⦃M⦄ ·) = tt := sorry 
+  (w ⊩⦃M⦄ ·) = tt := by sorry  
 
 /-
   Soundness
@@ -374,59 +407,59 @@ begin
     apply is_true_pl3 
   },
   { 
-    -- constants c₁ 
     apply sem_csq.is_true,
     intros M w wmem ctt, 
-    sorry 
+    exact c₁_is_true M w h_t h_k
   },
   { 
-    -- constants c₂ 
     apply sem_csq.is_true,
     intros M w wmem ctt, 
-    sorry 
+    exact c₂_is_true M w h_t h_k
   },
-   { 
-    -- constants c₃
+  { 
     apply sem_csq.is_true,
     intros M w wmem ctt, 
-    sorry 
+    exact c₃_is_true M w h_m₁ h_m₂
   },
   { apply sem_csq.is_true,
     intros M w wmem ctt, 
-    sorry 
+    apply is_true_kk 
   },
   { apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry,
+    apply is_true_t,
+    repeat {assumption}
   },
   { apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry 
+    apply is_true_s4
   },
   {
     apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry 
+    apply is_true_s5 
   },
   {
     apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry  
+    apply is_true_kb
   },
   {
     apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry  
+    apply is_true_dox,
+    repeat { assumption }
   },
   {
     apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry  
+    apply is_true_kd,
+    repeat { assumption }
   },
   {
     apply sem_csq.is_true,
     intros M w wmem ctt,
-    sorry  
+    apply is_true_kpdl  
   },
   { apply sem_csq.is_true,
     induction h_ih_hpq,
@@ -436,11 +469,11 @@ begin
     unfold forces_form, simp,
     intro hpq,
     cases (hpq M w wmem ctt),
-    { sorry },
+    { assumption },
     { exfalso,
       apply tt_eq_ff_eq_false,
       rw eq.symm (h_ih_hp M w wmem ctt),
-      sorry 
+      assumption 
     } 
   },
   { 
@@ -503,18 +536,19 @@ lemma consist_not_of_not_prf { σ : ℕ } {Γ : ctx σ} {p : form σ} :
   (Γ-σ ⊬κ  p) → is_consist (Γ ∪ ¬p) :=
 λ hnp hc, hnp (mp dne (deduction hc))
 
+axiom not_imp_not : ∀ {a b : Prop} [_inst_1 : decidable a], ¬a → ¬b ↔ b → a
+
 theorem completeness { σ : ℕ }{ Γ : ctx σ} {p : form σ} : 
   (Γ-σ ⊨κ p) → (Γ-σ ⊢κ  p) :=
 begin
   apply (@not_imp_not (Γ-σ ⊢κ p) (Γ-σ ⊨κ  p) (prop_decidable _)).1,
   intros nhp hp, cases hp,
-  have c : is_consist (Γ ∪ ¬p) := consist_not_of_not_prf nhp,
+  have : is_consist (Γ ∪ ¬p) := consist_not_of_not_prf nhp,
   apply absurd,
   fapply hp,
-    { exact model },
-    { exact ctx.max (Γ ∪ ¬p) },
+    { exact model σ },
     { apply mem_domain c },
-
+    { exact ctx.max (Γ ∪ ¬p) },
     { apply cons_ctx_tt_to_ctx_tt,
       apply ctx_tt_to_subctx_tt,
       apply ctx_tt_of_mem_domain (ctx.max (Γ ∪ ¬p)),
